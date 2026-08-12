@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fortune Capital — PL Document Generator</title>
+
+<script src="vendor/pizzip.min.js"></script>
+<script src="vendor/docxtemplater.min.js"></script>
+<script src="vendor/jszip.min.js"></script>
+<script src="vendor/docx-preview.min.js"></script>
+<script src="vendor/html2pdf.bundle.min.js"></script>
+<script src="vendor/FileSaver.min.js"></script>
+<script>
+(function(){
+  var missing = [];
+  if(typeof PizZip === 'undefined') missing.push('vendor/pizzip.min.js');
+  if(typeof (window.docxtemplater||window.Docxtemplater) === 'undefined') missing.push('vendor/docxtemplater.min.js');
+  if(typeof JSZip === 'undefined') missing.push('vendor/jszip.min.js');
+  if(typeof docx === 'undefined') missing.push('vendor/docx-preview.min.js');
+  if(typeof html2pdf === 'undefined') missing.push('vendor/html2pdf.bundle.min.js');
+  if(typeof saveAs === 'undefined') missing.push('vendor/FileSaver.min.js');
+  if(missing.length){
+    document.write('<div style="background:#c0392b;color:#fff;padding:16px 20px;font-family:monospace;font-size:13px;">' +
+      '<b>App cannot start — missing file(s):</b><br>' + missing.join('<br>') +
+      '<br><br>Check these exist in the <code>vendor/</code> folder on GitHub and were pushed, then hard-refresh (Ctrl+Shift+R).</div>');
+  }
+})();
+</script>
+
+<style>
+  :root{ --navy:#1a2744; --gold:#b8934a; --bg:#f4f5f7; --card:#fff; --line:#e2e4e9; --red:#c0392b; --green:#1e7e34; }
+  *{box-sizing:border-box;}
+  body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);margin:0;color:#22262f;}
+  header{background:var(--navy);color:#fff;padding:20px 28px;}
+  header h1{margin:0;font-size:20px;letter-spacing:.5px;}
+  header p{margin:2px 0 0;color:#c9cede;font-size:13px;}
+  .wrap{max-width:1300px;margin:0 auto;padding:22px;display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+  @media(max-width:980px){.wrap{grid-template-columns:1fr;padding:14px;gap:14px;}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:20px;}
+  .card h2{font-size:15px;margin:0 0 14px;color:var(--navy);border-bottom:2px solid var(--gold);padding-bottom:8px;}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
+  .row.full{grid-template-columns:1fr;}
+  @media(max-width:600px){.row{grid-template-columns:1fr;}}
+  label{font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:3px;}
+  input,select{width:100%;padding:10px 10px;border:1px solid #cfd3da;border-radius:6px;font-size:16px;}
+  @media(min-width:601px){input,select{font-size:13px;padding:8px 10px;}}
+  input:invalid{border-color:var(--red);}
+  .req::after{content:" *";color:var(--red);}
+  .btnrow{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;}
+  button{cursor:pointer;border:none;border-radius:6px;padding:12px 16px;font-size:14px;font-weight:600;min-height:44px;}
+  @media(max-width:600px){.btnrow{flex-direction:column;}.btnrow button{width:100%;}}
+  .primary{background:var(--navy);color:#fff;}
+  .gold{background:var(--gold);color:#fff;}
+  .ghost{background:#eceef2;color:#333;}
+  button:disabled{opacity:.5;cursor:not-allowed;}
+  #errors{color:var(--red);font-size:12px;margin-top:10px;white-space:pre-line;}
+  #status{font-size:12px;margin-top:10px;color:var(--green);font-weight:600;}
+  #previewHost{border:1px solid var(--line);border-radius:8px;max-height:800px;overflow:auto;background:#666;padding:10px;-webkit-overflow-scrolling:touch;}
+  @media(max-width:600px){#previewHost{max-height:60vh;}}
+  #previewHost .docx-wrapper{background:transparent;}
+  small.hint{color:#888;font-size:11px;}
+  .checkbox{display:flex;align-items:center;gap:6px;font-size:12px;margin-top:4px;}
+  .checkbox input{width:auto;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>FORTUNE CAPITAL</h1>
+  <p>Personal Loan Document Generator — KYC + Loan Details → Master Template → Word / PDF</p>
+</header>
+
+<div class="wrap">
+
+  <div class="card" style="grid-column:1/-1;">
+    <h2>Branch</h2>
+    <div class="row full">
+      <div>
+        <label class="req">Select Branch</label>
+        <select id="branch">
+          <option value="patteri">Patteri</option>
+          <option value="mathottam">Mathottam</option>
+        </select>
+      </div>
+    </div>
+    <div class="row">
+      <div><label>Office Address</label><input id="branch_address_field"></div>
+      <div><label>Phone Number(s)</label><input id="branch_phone_field"></div>
+    </div>
+    <div class="btnrow" style="margin-top:0;">
+      <button class="ghost" style="min-height:34px;padding:6px 12px;font-size:12px;" onclick="resetBranchToDefault()">Reset to saved default</button>
+    </div>
+    <small class="hint" style="display:block;margin-top:8px;color:#888;">Edits here are remembered per branch — no need to touch the Word template or re-download.</small>
+  </div>
+
+  <div class="card">
+    <h2>KYC — Customer Details</h2>
+    <div class="row">
+      <div><label class="req">Name</label><input id="name" required></div>
+      <div><label class="req">Father Name</label><input id="father_name" required></div>
+    </div>
+    <div class="row">
+      <div><label class="req">Year of Birth</label><input id="yob" required></div>
+      <div><label class="req">Gender</label>
+        <select id="gender"><option>Male</option><option>Female</option><option>Other</option></select>
+      </div>
+    </div>
+    <div class="row">
+      <div><label class="req">Mobile Number</label><input id="mobile" maxlength="10" required></div>
+      <div><label>ID Type</label><input id="id_type" value="Aadhaar"></div>
+    </div>
+    <div class="row full">
+      <div>
+        <label class="req">Aadhaar Number</label>
+        <input id="aadhaar" maxlength="12" required style="-webkit-text-security:disc;text-security:disc;">
+        <div class="checkbox"><input type="checkbox" id="showAadhaar"><label style="margin:0;">Show</label></div>
+        <small class="hint" id="aadhaarWarn" style="color:var(--red);display:none;"></small>
+      </div>
+    </div>
+
+    <label style="margin-top:6px;">Address <small class="hint">(split across 5 lines as printed)</small></label>
+    <div class="row"><div><input id="addr1" placeholder="Address line 1" required></div><div><input id="addr2" placeholder="Address line 2"></div></div>
+    <div class="row"><div><input id="addr3" placeholder="Address line 3"></div><div><input id="addr4" placeholder="Address line 4"></div></div>
+    <div class="row full"><div><input id="addr5" placeholder="Address line 5 (e.g. District, State, PIN)"></div></div>
+
+    <h2 style="margin-top:18px;">Loan Details</h2>
+    <div class="row">
+      <div><label class="req">Loan Amount (₹)</label><input id="loan_amount" type="number" min="1" required></div>
+      <div><label class="req">Rate of Interest (%)</label><input id="rate" type="number" step="0.01" required></div>
+    </div>
+    <div class="row">
+      <div><label class="req">Loan Date</label><input id="loan_date" type="date" required></div>
+      <div>
+        <label>Agreement Date</label><input id="agreement_date" type="date">
+        <div class="checkbox"><input type="checkbox" id="sameDate" checked><label style="margin:0;">Same as loan date</label></div>
+      </div>
+    </div>
+    <div class="row">
+      <div><label class="req">Tenure</label><input id="tenure" value="12 Months" required></div>
+      <div><label class="req">Repayment Mode</label>
+        <select id="repayment_mode">
+          <option>Monthly</option><option>Cash</option><option>Cheque</option>
+          <option>UPI</option><option>NEFT</option><option>Bank Transfer</option><option>Other</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="btnrow">
+      <button class="ghost" onclick="fillTestData()">Fill Test Data</button>
+      <button class="ghost" onclick="if(confirm('Clear all fields? This cannot be undone.')) clearDraft()">Clear Draft</button>
+      <button class="primary" onclick="generate()">Generate Preview</button>
+    </div>
+    <div id="errors"></div>
+    <div id="status"></div>
+  </div>
+
+  <div class="card">
+    <h2>Document Preview</h2>
+    <div id="previewHost"><p style="color:#888;padding:20px;">Fill the form and click "Generate Preview".</p></div>
+    <div class="btnrow">
+      <button class="gold" id="btnWord" onclick="downloadWord()" disabled>Download Word (.docx)</button>
+      <button class="gold" id="btnPdf" onclick="downloadPdf()" disabled>Download PDF</button>
+    </div>
+    <small class="hint">PDF is a screenshot-based export of the preview, paginated automatically. This template has no fixed page breaks, so the browser's page cuts may land slightly differently than Word's. For a page-break-exact PDF, open the downloaded Word file and use Word's own "Export to PDF."</small>
+  </div>
+
+</div>
+
+<footer style="text-align:center;color:#999;font-size:11px;padding:14px 0 24px;">
+  Fortune Capital PL Generator — v1.1 — 10 Aug 2026
+</footer>
+
+<script>
+let generatedBlob = null;
+
+const BRANCH_DEFAULTS = {
+  patteri: {
+    address: 'Sri Muthappan Complex, Patteri, Kottoli, Kerala ,KML No: 32110544891',
+    phone: '8129293366, 9995510333,0495-3143420'
+  },
+  mathottam: {
+    address: 'EDIT ME: Mathottam branch address, KML No: EDIT',
+    phone: 'EDIT ME: Mathottam branch phone'
+  }
+};
+const BRANCH_OVERRIDE_KEY = 'fc_branch_overrides_v1';
+
+function getBranchOverrides(){
+  try{ return JSON.parse(localStorage.getItem(BRANCH_OVERRIDE_KEY)) || {}; }catch(e){ return {}; }
+}
+function saveBranchOverride(branchId, address, phone){
+  const all = getBranchOverrides();
+  all[branchId] = {address, phone};
+  try{ localStorage.setItem(BRANCH_OVERRIDE_KEY, JSON.stringify(all)); }catch(e){}
+}
+function loadBranchFields(){
+  const branchId = document.getElementById('branch').value;
+  const overrides = getBranchOverrides();
+  const b = overrides[branchId] || BRANCH_DEFAULTS[branchId];
+  document.getElementById('branch_address_field').value = b.address;
+  document.getElementById('branch_phone_field').value = b.phone;
+}
+function resetBranchToDefault(){
+  const branchId = document.getElementById('branch').value;
+  const all = getBranchOverrides();
+  delete all[branchId];
+  try{ localStorage.setItem(BRANCH_OVERRIDE_KEY, JSON.stringify(all)); }catch(e){}
+  loadBranchFields();
+}
+document.getElementById('branch').addEventListener('change', loadBranchFields);
+document.getElementById('branch_address_field').addEventListener('input', e=>{
+  saveBranchOverride(document.getElementById('branch').value, e.target.value, document.getElementById('branch_phone_field').value);
+});
+document.getElementById('branch_phone_field').addEventListener('input', e=>{
+  saveBranchOverride(document.getElementById('branch').value, document.getElementById('branch_address_field').value, e.target.value);
+});
+let templateBuffer = null;
+
+const ONES = ["", "One","Two","Three","Four","Five","Six","Seven","Eight","Nine","Ten",
+  "Eleven","Twelve","Thirteen","Fourteen","Fifteen","Sixteen","Seventeen","Eighteen","Nineteen"];
+const TENS = ["", "", "Twenty","Thirty","Forty","Fifty","Sixty","Seventy","Eighty","Ninety"];
+
+function twoDigit(n){ if(n<20) return ONES[n]; return TENS[Math.floor(n/10)] + (n%10 ? " "+ONES[n%10] : ""); }
+function threeDigit(n){ if(n>=100) return ONES[Math.floor(n/100)] + " Hundred" + (n%100 ? " "+twoDigit(n%100) : ""); return twoDigit(n); }
+
+function indianNumberToWords(n){
+  n = Math.floor(Number(n));
+  if(n === 0) return "Zero Rupees";
+  let parts = [];
+  let crore = Math.floor(n/10000000); n %= 10000000;
+  let lakh = Math.floor(n/100000); n %= 100000;
+  let thousand = Math.floor(n/1000); n %= 1000;
+  let rest = n;
+  if(crore) parts.push(threeDigit(crore)+" Crore");
+  if(lakh) parts.push(twoDigit(lakh)+" Lakh");
+  if(thousand) parts.push(twoDigit(thousand)+" Thousand");
+  if(rest) parts.push(threeDigit(rest));
+  return parts.join(" ") + " Rupees";
+}
+
+function rateToWords(r){
+  r = String(r).trim();
+  if(r.includes(".")){
+    let [whole, frac] = r.split(".");
+    whole = parseInt(whole,10); frac = frac.replace(/0+$/,"");
+    let w = whole < 100 ? twoDigit(whole) : threeDigit(whole);
+    if(!frac) return w;
+    return w + " Point " + frac.split("").map(d => d==="0" ? "Zero" : ONES[parseInt(d,10)]).join(" ");
+  }
+  let n = parseInt(r,10);
+  return n < 100 ? twoDigit(n) : threeDigit(n);
+}
+
+function formatDateDDMMYYYY(iso){
+  if(!iso) return "";
+  const [y,m,d] = iso.split("-");
+  return `${d}/${m}/${y}`;
+}
+
+function fillTestData(){
+  document.getElementById('name').value = "RAHUL KUMAR";
+  document.getElementById('father_name').value = "RAMESH KUMAR";
+  document.getElementById('yob').value = "1988";
+  document.getElementById('gender').value = "Male";
+  document.getElementById('mobile').value = "9876543210";
+  document.getElementById('aadhaar').value = "123412341234";
+  document.getElementById('addr1').value = "TEST HOUSE";
+  document.getElementById('addr2').value = "TEST ROAD";
+  document.getElementById('addr3').value = "KOZHIKODE";
+  document.getElementById('addr4').value = "KERALA";
+  document.getElementById('addr5').value = "673001";
+  document.getElementById('loan_amount').value = "100000";
+  document.getElementById('rate').value = "18";
+  document.getElementById('loan_date').value = new Date().toISOString().slice(0,10);
+  document.getElementById('tenure').value = "12 Months";
+}
+
+document.getElementById('sameDate').addEventListener('change', e=>{
+  document.getElementById('agreement_date').disabled = e.target.checked;
+});
+document.getElementById('agreement_date').disabled = true;
+
+document.getElementById('showAadhaar').addEventListener('change', e=>{
+  document.getElementById('aadhaar').style.webkitTextSecurity = e.target.checked ? 'none' : 'disc';
+  document.getElementById('aadhaar').style.textSecurity = e.target.checked ? 'none' : 'disc';
+});
+
+// Verhoeff checksum tables — validates real Aadhaar check digit
+const VD = [
+  [0,1,2,3,4,5,6,7,8,9],[1,2,3,4,0,6,7,8,9,5],[2,3,4,0,1,7,8,9,5,6],[3,4,0,1,2,8,9,5,6,7],
+  [4,0,1,2,3,9,5,6,7,8],[5,9,8,7,6,0,4,3,2,1],[6,5,9,8,7,1,0,4,3,2],[7,6,5,9,8,2,1,0,4,3],
+  [8,7,6,5,9,3,2,1,0,4],[9,8,7,6,5,4,3,2,1,0]
+];
+const VP = [
+  [0,1,2,3,4,5,6,7,8,9],[1,5,7,6,2,8,3,0,9,4],[5,8,0,3,7,9,6,1,4,2],[8,9,1,6,0,4,3,5,2,7],
+  [9,4,5,3,1,2,6,8,7,0],[4,2,8,6,5,7,3,9,0,1],[2,7,9,3,8,0,6,4,1,5],[7,0,4,6,9,1,3,2,5,8]
+];
+function verhoeffValid(numStr){
+  let c = 0;
+  const digits = numStr.split('').reverse().map(Number);
+  for(let i=0;i<digits.length;i++) c = VD[c][VP[i%8][digits[i]]];
+  return c === 0;
+}
+
+// --- Draft autosave (localStorage) ---
+const DRAFT_KEY = 'fc_pl_draft_v1';
+const DRAFT_FIELDS = ['branch','name','father_name','yob','gender','mobile','id_type','aadhaar',
+  'addr1','addr2','addr3','addr4','addr5','loan_amount','rate','loan_date','agreement_date',
+  'tenure','repayment_mode'];
+
+function saveDraft(){
+  const draft = {};
+  DRAFT_FIELDS.forEach(id => { const el = document.getElementById(id); if(el) draft[id] = el.value; });
+  draft.sameDate = document.getElementById('sameDate').checked;
+  try{ localStorage.setItem(DRAFT_KEY, JSON.stringify(draft)); }catch(e){}
+}
+function restoreDraft(){
+  let draft;
+  try{ draft = JSON.parse(localStorage.getItem(DRAFT_KEY)); }catch(e){}
+  if(!draft) return;
+  DRAFT_FIELDS.forEach(id => { const el = document.getElementById(id); if(el && draft[id] !== undefined) el.value = draft[id]; });
+  if(draft.sameDate !== undefined){
+    document.getElementById('sameDate').checked = draft.sameDate;
+    document.getElementById('agreement_date').disabled = draft.sameDate;
+  }
+  document.getElementById('status').textContent = "Restored unsaved draft from last visit.";
+  loadBranchFields();
+}
+function clearDraft(){
+  try{ localStorage.removeItem(DRAFT_KEY); }catch(e){}
+  DRAFT_FIELDS.forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+  document.getElementById('gender').value = 'Male';
+  document.getElementById('id_type').value = 'Aadhaar';
+  document.getElementById('repayment_mode').value = 'Monthly';
+  document.getElementById('branch').value = 'patteri';
+  loadBranchFields();
+  document.getElementById('previewHost').innerHTML = '<p style="color:#888;padding:20px;">Fill the form and click "Generate Preview".</p>';
+  document.getElementById('btnWord').disabled = true;
+  document.getElementById('btnPdf').disabled = true;
+  document.getElementById('status').textContent = '';
+  document.getElementById('errors').textContent = '';
+  generatedBlob = null;
+}
+document.addEventListener('input', e => { if(DRAFT_FIELDS.includes(e.target.id)) saveDraft(); });
+restoreDraft();
+loadBranchFields();
+
+function readForm(){
+  const g = id => document.getElementById(id).value.trim();
+  const errors = [];
+  const data = {
+    branch_address: document.getElementById('branch_address_field').value.trim(),
+    branch_phone: document.getElementById('branch_phone_field').value.trim(),
+    name: g('name'), father_name: g('father_name'), yob: g('yob'), gender: g('gender'),
+    mobile: g('mobile'), id_type: g('id_type') || "Aadhaar", aadhaar: g('aadhaar'),
+    addr1: g('addr1'), addr2: g('addr2'), addr3: g('addr3'), addr4: g('addr4'), addr5: g('addr5'),
+    loan_amount_raw: g('loan_amount'), rate_raw: g('rate'),
+    loan_date_raw: g('loan_date'),
+    agreement_date_raw: document.getElementById('sameDate').checked ? g('loan_date') : g('agreement_date'),
+    tenure: g('tenure'), repayment_mode: g('repayment_mode')
+  };
+
+  if(!data.name) errors.push("Name required");
+  if(!data.father_name) errors.push("Father name required");
+  if(!data.yob) errors.push("Year of birth required");
+  if(!/^[6-9]\d{9}$/.test(data.mobile)) errors.push("Mobile must be a valid 10-digit Indian number");
+  if(!/^\d{12}$/.test(data.aadhaar)) errors.push("Aadhaar must be 12 digits");
+  if(!data.addr1) errors.push("Address line 1 required");
+  if(!data.loan_amount_raw || Number(data.loan_amount_raw) <= 0) errors.push("Loan amount must be > 0");
+  if(!data.rate_raw) errors.push("Rate required");
+  if(!data.loan_date_raw) errors.push("Loan date required");
+  if(!data.tenure) errors.push("Tenure required");
+
+  const warnBox = document.getElementById('aadhaarWarn');
+  if(/^\d{12}$/.test(data.aadhaar) && !verhoeffValid(data.aadhaar)){
+    warnBox.textContent = "⚠ Aadhaar checksum looks invalid — double-check the number.";
+    warnBox.style.display = "block";
+  } else {
+    warnBox.style.display = "none";
+  }
+
+  const warnings = [];
+  if(Number(data.loan_amount_raw) > 10000000) warnings.push("Loan amount is above ₹1 crore — confirm this isn't a typo.");
+
+  return {data, errors, warnings};
+}
+
+async function loadTemplate(){
+  if(templateBuffer) return templateBuffer;
+  const res = await fetch('template.docx');
+  if(!res.ok) throw new Error("Could not load template.docx — make sure it sits next to index.html");
+  templateBuffer = await res.arrayBuffer();
+  return templateBuffer;
+}
+
+async function generate(){
+  const errBox = document.getElementById('errors');
+  const statusBox = document.getElementById('status');
+  errBox.textContent = ""; statusBox.textContent = "";
+  document.getElementById('btnWord').disabled = true;
+  document.getElementById('btnPdf').disabled = true;
+
+  const {data, errors, warnings} = readForm();
+  if(errors.length){ errBox.textContent = errors.join("\n"); return; }
+  if(warnings.length){ statusBox.style.color = "#c07d1e"; statusBox.textContent = "⚠ " + warnings.join(" | "); }
+
+  const replacements = {
+    branch_address: data.branch_address, branch_phone: data.branch_phone,
+    name: data.name, father_name: data.father_name, yob: data.yob, gender: data.gender,
+    mobile: data.mobile, id_type: data.id_type, aadhaar: data.aadhaar,
+    addr1: data.addr1, addr2: data.addr2, addr3: data.addr3, addr4: data.addr4, addr5: data.addr5,
+    loan_amount: String(Number(data.loan_amount_raw)),
+    rate: String(data.rate_raw),
+    loan_date: formatDateDDMMYYYY(data.loan_date_raw),
+    agreement_date: formatDateDDMMYYYY(data.agreement_date_raw),
+    tenure: data.tenure, repayment_mode: data.repayment_mode,
+    loan_amount_words: indianNumberToWords(data.loan_amount_raw),
+    rate_words: rateToWords(data.rate_raw)
+  };
+
+  try{
+    const buf = await loadTemplate();
+    const zip = new PizZip(buf.slice(0)); // slice: PizZip mutates buffer detachment on repeated use
+    const dxtGlobal = window.docxtemplater || window.Docxtemplater;
+    const Ctor = (dxtGlobal && dxtGlobal.default) ? dxtGlobal.default : dxtGlobal;
+    if (typeof Ctor !== "function") throw new Error("docxtemplater library did not load correctly — check vendor/docxtemplater.min.js is present");
+    const doc = new Ctor(zip, {
+      delimiters: {start:'{{', end:'}}'},
+      paragraphLoop: true,
+      linebreaks: true,
+      parser: function(tag) {
+        const key = tag.trim();
+        return { get: function(scope){ return scope[key]; } };
+      },
+      nullGetter: function(){ return ""; }
+    });
+    doc.render(replacements);
+
+    generatedBlob = doc.getZip().generate({
+      type: 'blob',
+      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    });
+
+    // Word file is ready the moment the blob exists — unlock downloads now,
+    // independent of whether the in-browser preview renders successfully.
+    document.getElementById('btnWord').disabled = false;
+    saveDraft();
+
+    const host = document.getElementById('previewHost');
+    host.innerHTML = "";
+    try{
+      await docx.renderAsync(generatedBlob, host, null, {
+        className: "docx", inWrapper: true, ignoreWidth: false, ignoreHeight: false
+      });
+      document.getElementById('btnPdf').disabled = false;
+      if(!warnings.length) statusBox.textContent = "Document generated — 0 unresolved fields.";
+    }catch(previewErr){
+      console.error(previewErr);
+      host.innerHTML = '<p style="color:var(--red);padding:20px;">Preview couldn\'t render, but your Word file is ready — click "Download Word" below. (PDF export needs the preview, so it stays disabled this time.)</p>';
+    }
+  }catch(e){
+    console.error(e);
+    errBox.textContent = "Generation failed: " + (e.message || e);
+  }
+}
+
+function downloadWord(){
+  if(!generatedBlob) return;
+  const name = document.getElementById('name').value.trim().replace(/[^a-zA-Z0-9]+/g,'_');
+  const date = document.getElementById('loan_date').value.split('-').reverse().join('-');
+  saveAs(generatedBlob, `FORTUNE_CAPITAL_PL_${name}_${date}.docx`);
+}
+
+async function downloadPdf(){
+  if(!generatedBlob) return;
+  const name = document.getElementById('name').value.trim().replace(/[^a-zA-Z0-9]+/g,'_');
+  const date = document.getElementById('loan_date').value.split('-').reverse().join('-');
+
+  const btn = document.getElementById('btnPdf');
+  const prevLabel = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Rendering PDF…';
+
+  // Render a second, throwaway copy off-screen with no scroll/overflow/clip state
+  // to fight — the visible #previewHost is a scrollable, interactive element and
+  // capturing it directly kept pulling in its own container background.
+  const staging = document.createElement('div');
+  staging.style.position = 'fixed';
+  staging.style.top = '0';
+  staging.style.left = '-99999px';
+  staging.style.background = '#ffffff';
+  document.body.appendChild(staging);
+
+  try{
+    await docx.renderAsync(generatedBlob, staging, null, {
+      className: "docx", inWrapper: true, ignoreWidth: false, ignoreHeight: false
+    });
+    const target = staging.querySelector('.docx-wrapper > .docx') || staging.querySelector('.docx-wrapper') || staging;
+
+    await html2pdf().set({
+      margin: 0,
+      filename: `FORTUNE_CAPITAL_PL_${name}_${date}.pdf`,
+      image: {type:'jpeg', quality:0.98},
+      html2canvas: {scale:2, useCORS:true, backgroundColor:'#ffffff'},
+      jsPDF: {unit:'pt', format:'letter', orientation:'portrait'},
+      pagebreak: {mode:['css','legacy']}
+    }).from(target).save();
+  } finally {
+    document.body.removeChild(staging);
+    btn.disabled = false; btn.textContent = prevLabel;
+  }
+}
+</script>
+
+</body>
+</html>
